@@ -35,6 +35,9 @@ namespace GHelper.Gpu
             Logger.WriteLine("Eco flag : " + eco);
             Logger.WriteLine("Mux flag : " + mux);
 
+            // powered but still released (Eco refused, or G-Helper stopped mid-switch): give the dGPU back
+            if (eco == 0 && NvidiaPnp.HasDisabled()) Task.Run(() => NvidiaPnp.Enable());
+
             if (eco == 1 && HardwareControl.GpuControl?.IsValid == true)
             {
                 Logger.WriteLine("Eco half-state");
@@ -178,6 +181,15 @@ namespace GHelper.Gpu
                     HardwareControl.KillGPUApps();
                     HardwareControl.DisposeGpuControl();
                     if (AppConfig.IsNVPlatform()) NvidiaGpuControl.StopNVService();
+
+                    if (NvidiaPnp.IsActive() && !NvidiaPnp.Disable())
+                    {
+                        Logger.WriteLine("Eco cancelled: the dGPU could not be released");
+                        if (AppConfig.IsNVPlatform()) NvidiaGpuControl.RestartNVService();
+                        await HardwareControl.RecreateGpuControlWithRetry(3, 2);
+                        settings.Invoke(delegate { InitGPUMode(); });
+                        return;
+                    }
                 }
 
                 Logger.WriteLine($"Running eco command {eco}");
@@ -187,6 +199,8 @@ namespace GHelper.Gpu
 
                     status = Program.acpi.SetGPUEco(eco);
                     await Task.Delay(TimeSpan.FromMilliseconds(AppConfig.Get("refresh_delay", 500)));
+
+                    if (eco == 0) await NvidiaPnp.Enable();
 
                     settings.Invoke(delegate
                     {

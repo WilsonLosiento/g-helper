@@ -527,6 +527,11 @@ public static class AppConfig
         return (ContainsModel("GU605") || ContainsModel("H7606")) && IsNotFalse("standard_force_fix");
     }
 
+    public static bool IsGracefulEco()
+    {
+        return Is("gpu_graceful_eco") || (ContainsModel("H7606") && IsNotFalse("gpu_graceful_eco"));
+    }
+
     public static bool IsBacklightZones()
     {
         return IsStrix() || IsZ13();
